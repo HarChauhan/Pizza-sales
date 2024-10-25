@@ -1,0 +1,82 @@
+import math
+import pandas as pd
+import numpy as np
+import matplotlib.pyplot as plt
+import seaborn as sns
+
+
+pizza_details = pd.read_csv(
+    'pizza.csv',
+    encoding='latin', index_col = 'order_details_id'
+)
+
+pizza_details.head(10)
+
+pizza_details['order_date'] = pd.to_datetime(pizza_details['order_date'])
+pizza_details['order_time'] = pd.to_datetime(pizza_details['order_time'])
+pizza_details['order_week'] = pizza_details['order_date'].dt.isocalendar().week
+pizza_details['day'] = pizza_details['order_date'].dt.day_name()
+pizza_details['hour'] = pizza_details['order_time'].dt.hour
+
+pizza_details['day'] = pd.Categorical(
+    values = pizza_details['day'],
+    categories = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'],
+    ordered = True
+)
+pizza_details.head(1)
+
+busiest_days = pizza_details.groupby(by = 'day')['quantity'].sum()
+type(busiest_days)
+df = busiest_days.to_frame().reset_index()
+
+color_graph = '#118DFF'
+g = sns.catplot(data = df, x = 'quantity', y = 'day', kind = 'bar', color = color_graph, aspect = 1.5)
+g.set(title = 'Total number of pizzas ordered by day of the week')
+g.set(xlabel = 'Number of pizzas ordered', ylabel = 'Day of the week')
+plt.show()
+
+busiest_hours = pizza_details.groupby('hour')['quantity'].sum()
+dfh = busiest_hours.to_frame().reset_index()
+# dfh.head(10)
+g = sns.catplot(data = dfh, x = 'hour', y = 'quantity', kind = 'bar', color = color_graph, aspect = 1.5)
+g.set(title = 'Total number of pizzas ordered by hour of the day')
+g.set(xlabel = 'Hour of the day', ylabel = 'Number of pizzas ordered')
+plt.show()
+
+
+pizzas_by_week_day_hour = pizza_details.groupby(['order_week', 'day', 'hour'], as_index = False)['quantity'].sum()
+pizzas_by_week_day = pizzas_by_week_day_hour.groupby(['order_week', 'day'], as_index = False)['quantity'].sum()
+avg_pizzas_by_day = pizzas_by_week_day.groupby('day', as_index = False)['quantity'].agg({'median': 'median', 'average': 'mean', 'std': 'std'})
+
+peak_hours = pizza_details['hour'].isin([12, 13, 17, 18])
+pizzas_by_week_day_hour_peak = pizza_details[peak_hours].groupby(by = ['order_week', 'day', 'hour'], as_index = False)['quantity'].sum()
+pizzas_by_week_day_peak = pizzas_by_week_day_hour_peak.groupby(by = ['order_week', 'day'], as_index = False)['quantity'].sum()
+
+avg_pizzas_by_day_peak = pizzas_by_week_day_peak.groupby(by = 'day', as_index = False)['quantity'].agg({'median_peak': 'median', 'average_peak': 'mean', 'std_peak': 'std'})
+avg_pizzas_by_day['median_peak'] = avg_pizzas_by_day_peak['median_peak']
+avg_pizzas_by_day['average_peak'] = avg_pizzas_by_day_peak['average_peak']
+avg_pizzas_by_day['std_peak'] = avg_pizzas_by_day_peak['std_peak']
+
+g = sns.catplot(data = avg_pizzas_by_day, x = 'day', y = 'average', kind = 'bar', color = color_graph, aspect = 1.5)
+g.set(title = 'Avg. Pizzas Sold per day of week')
+g.set(xlabel = 'Week Days', ylabel = 'Number of pizzas made')
+plt.show()
+
+math.floor(pizzas_by_week_day_peak['quantity'].mean())
+
+math.floor(pizzas_by_week_day_peak['quantity'].std())
+
+revenue_by_name = pizza_details.groupby(by = 'pizza_name', as_index = False)['total_price'].sum().sort_values(by = 'total_price')
+top5_best_selling = revenue_by_name.nlargest(columns = 'total_price', n = 5)
+g = sns.catplot(data = top5_best_selling, x = 'total_price', y = 'pizza_name', kind = 'bar', color = color_graph, aspect = 1.5)
+g.set(title = 'The top 5 best selling pizzas')
+g.set(xlabel = 'Revenue in $us.', ylabel = 'Name of the pizza')
+plt.show()
+
+top5_worst_selling = revenue_by_name.nsmallest(n = 5, columns = 'total_price')
+g = sns.catplot(data = top5_worst_selling, x = 'total_price', y = 'pizza_name', kind = 'bar', color = color_graph, aspect = 1.5)
+g.set(title = 'The top 5 worst selling pizzas')
+g.set(xlabel = 'Revenue in $us.', ylabel = 'Name of the pizza')
+plt.show()
+
+
